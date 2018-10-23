@@ -6,8 +6,113 @@ np.seterr(all='raise', under='warn')
 
 # nn model
 
+class NNModel(abc.ABC):
+    
+    def step_fit(self, X, y):
+        """Learn model with given input data set.
+        
+        Args:
+            X (np.array): input data
+            y (np.array): ground truth corresponding to X
+        
+        Returns:
+            Total cost of samples of each round in running sequence (list)
+        """
+        y_predict = self.fit_forward(X)
+        self.update_model(y_predict, y)
+        return (self.calc_loss(y_predict, y)).sum()
+    
+    def fit(self, X, y, rounds, batch_size, random_shuffle=True):
+        """Learn and update model with given input data set for specific rounds and batch size.
+        
+        Args:
+            X (np.array): input data
+            y (np.array): ground truth corresponding to X
+        
+        Returns:
+            Average cost of samples of each round in running sequence (list)
+        """
+        avg_cost_by_round = []
+        total_size = len(X)
+        for _ in range(rounds):
+            cost = 0
+            learning_idx = np.arange(total_size)
+            if random_shuffle:
+                np.random.shuffle(learning_idx)
 
-class NNModel:
+            for start_idx in range(0, total_size, batch_size):
+                data_idx = learning_idx[start_idx : min(start_idx+batch_size,total_size)]
+                cost += self.step_fit(X[data_idx], y[data_idx])
+            avg_cost_by_round.append(cost/total_size)
+        return avg_cost_by_round
+        
+    def transform(self, X):
+        """Transform input data X into target data using current learned model.
+        Support both batch and single sample.
+        
+        Args:
+            X (np.array): input data
+        
+        Returns:
+            Result calculated by current model
+        """
+        return self.forward(X)
+    
+    @abc.abstractmethod
+    def fit_forward(self, X):
+        """Forward pass, Run through each layers with given input X to get predict value.
+        Support both batch and single sample.
+        Intermediate result is stored for back propagation.
+        
+        Args:
+            X (np.array): input data
+        
+        Returns:
+            Result calculated by current model(all layers)
+        """
+        pass
+    
+    @abc.abstractmethod
+    def forward(self, X):
+        """Forward pass, run through each layers with given input X to get predict value.
+        Support both batch and single sample.
+        Intermediate result is not stored.
+        
+        Args:
+            X (np.array): input data
+        
+        Returns:
+            Result calculated by current model
+        """
+        pass
+    
+    @abc.abstractmethod
+    def update_model(self, y_predict, y):
+        """Update parameters of each layer using errs (y_predict - y) in current step.
+        
+        Args:
+            y_predict (np.array): predict values
+            y (np.array): target data
+        """
+        pass
+    
+    @abc.abstractmethod
+    def calc_loss(self, y_predict, y):
+        """Calculate cost value of current model of predict result.
+        
+        Args:
+            y_predict (np.array): predict values
+            y (np.array): target data
+        
+        Returns:
+            Cost values of predict results by samples
+        """
+        pass
+
+
+class VNNModel(NNModel):
+    """Vanilla neural network."""
+    
     def __init__(self, X_size, gd_updater, cost_function):
         """Init function.
         
@@ -34,15 +139,13 @@ class NNModel:
         layer.setup(input_size=input_size, gd_updater=self.gd_updater)
         self.model.append(layer)
     
-    def model_forward(self, X, learning=True):
+    def fit_forward(self, X):
         """Forward pass, Run through each layers with given input X to get predict value.
         Support both batch and single sample.
-        Intermediate result is stored for back propagation if learning is set to True.
+        Intermediate result is stored for back propagation.
         
         Args:
             X (np.array): input data
-            learning (boolean): flag if current step is in learning period
-                During learning period, intermediate result is stored for back propagation.
         
         Returns:
             Result calculated by current model(all layers)
@@ -52,7 +155,7 @@ class NNModel:
             cur_res = layer.fit_forward(cur_res)
         return cur_res
     
-    def predict(self, X):
+    def forward(self, X):
         """Forward pass, run through each layers with given input X to get predict value.
         Support both batch and single sample.
         Intermediate result is not stored.
@@ -81,7 +184,7 @@ class NNModel:
         for layer in self.model:
             layer.update()
     
-    def loss(self, y_predict, y):
+    def calc_loss(self, y_predict, y):
         """Calculate cost value of current model of predict result.
         
         Args:
@@ -92,4 +195,3 @@ class NNModel:
             Cost values of predict results by samples
         """
         return self.cost_function.loss(y, y_predict)
-
