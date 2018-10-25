@@ -65,7 +65,7 @@ class SquaredLoss(CostFunction):
 
 
 class CrossEntropy(CostFunction):
-    """Cross entropy."""
+    """Cross entropy for multi-category."""
     
     def loss(self, y, y_predict):
         """Calculate cost values using squared loss.
@@ -91,3 +91,32 @@ class CrossEntropy(CostFunction):
         """
         return -y / np.clip(y_predict, 1e-8, None)
 
+
+class SigmoidCrossEntropy(CostFunction):
+    """Cross entropy for binary category only."""
+    
+    def loss(self, y, y_predict):
+        """Calculate cost values using squared loss.
+        
+        Args:
+            y (np.array): ground truth values
+            y_predict (np.array): generated results
+        
+        Returns:
+            sum(-y * log(y_predict))
+        """
+        return -y*np.log(np.clip(y_predict, 1e-8, None)) \
+                   -(1-y)*np.log(np.clip(1-y_predict, 1e-8, None))
+    
+    def derivative(self, y, y_predict):
+        """Calculate cost values for generated results.
+        
+        Args:
+            y (np.array): ground truth values
+            y_predict (np.array): generated results
+        
+        Returns:
+            (y_predict-y) / (y_predict*(1-y_predict))
+        """
+        y_predict = np.clip(y_predict, 1e-8, 1-1e-8)
+        return (y_predict - y) / (y_predict*(1-y_predict))
