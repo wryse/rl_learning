@@ -94,7 +94,7 @@ class ActivationNone(Activation):
 class ActivationSigmoid(Activation):
     """Sigmoid function. Data out of bounds will be clipped."""
     
-    def __init__(self, x_upper_bound=None, x_lower_bound=None):
+    def __init__(self, x_upper_bound=500, x_lower_bound=-500):
         """Init function.
         
         Args:
