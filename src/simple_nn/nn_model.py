@@ -182,31 +182,63 @@ class NNModel(NNModelBase):
         return self.cost_function.loss(y, y_predict)
 
 
-# TODO: Add comments
-# TODO: Add parameters for Z
 class GANModel(NNModel):
-    def __init__(self, gen_model, dis_model):
+    """Generative adversarial network."""
+    
+    def __init__(self, gen_model, dis_model, func_gen_noise=gen_noise):
+        """Init function.
+        
+        Attributes:
+            gen_model (NNModel): generative model
+            dis_model (NNModel): discriminal model
+            Z_shape (int/shape): number or shape of input data for generative model
+            X_shape (int/shape): number or shape of input data for discriminal model
+            gen_noise (function): function of generating random noise with specific form of parameters
+        """
         self.gen_model = gen_model
         self.dis_model = dis_model
         self.Z_shape = self.gen_model.X_shape
         self.X_shape = self.dis_model.X_shape
+        self.gen_noise = func_gen_noise
     
     def step_fit(self, X, y):
-        n = len(X)
-        Z_fake = np.random.rand(n, self.Z_shape)
-        X_fake = self.transform(Z_fake)
+        """Train the two models with given input sample data set.
         
+        Args:
+            X (np.array): input sample data
+            y (np.array): ground truth corresponding to X
+        
+        Returns:
+            Result of discriminal model as total cost in running sequence (list)
+            Mathematically, the closer to 0.5 the better
+        """
+        n = len(X)
+        
+        Z_fake, fake_params = self.gen_noise(n, np.atleast_1d(self.Z_shape))
+        Z_fake_res = self.transform(Z_fake)
+        X_fake = np.c_[fake_params, Z_fake_res] if fake_params is not None else Z_fake_res
         self.dis_model.fit(X_fake, np.zeros((n,1)))
         self.dis_model.fit(X, y)
         
-        Z_fake = np.random.rand(n, self.Z_shape)
-        X_fake = self.gen_model.fit_forward(Z_fake)
+        Z_fake, fake_params = self.gen_noise(n, np.atleast_1d(self.Z_shape))
+        Z_fake_res = self.gen_model.fit_forward(Z_fake)
+        X_fake = np.c_[fake_params, Z_fake_res] if fake_params is not None else Z_fake_res
         y_predict = self.dis_model.fit_forward(X_fake)
         delta_dis = self.dis_model.back_propagation(y_predict, np.ones(y_predict.shape))
+        if fake_params is not None:
+            delta_dis = delta_dis[:,fake_params.shape[1]:]
         self.gen_model.back_propagation(y_predict=None, y=None, delta=delta_dis)
         self.gen_model.update_model()
         
-        return (self.dis_model.calc_loss(y_predict, np.ones(y_predict.shape))).sum()
+        return (self.dis_model.transform(X).sum())
     
     def forward(self, Z):
+        """Forward pass, simply call generative model to generate target with given data.
+        
+        Args:
+            Z (np.array): input data
+        
+        Returns:
+            Target generated
+        """
         return self.gen_model.transform(Z)
