@@ -185,7 +185,22 @@ class NNModel(NNModelBase):
 class GANModel(NNModel):
     """Generative adversarial network."""
     
-    def __init__(self, gen_model, dis_model, func_gen_noise=gen_noise):
+    def random_noise(self, n, shape=None, spec_param=None):
+        """Default function to totally generate noise randomly.
+        
+        Args:
+            n (int): sample number to generate
+            shape (int/shape): number or shape of single sample data
+            spec_param (any): specific parameter for specific dataset, not used in the default function
+        
+        Returns:
+            (Generated sample array, specific parameter array)
+        """
+        noise = np.random.randn(n, *shape)
+        param = None
+        return noise, param
+    
+    def __init__(self, gen_model, dis_model, func_gen_noise=None):
         """Init function.
         
         Attributes:
@@ -199,7 +214,7 @@ class GANModel(NNModel):
         self.dis_model = dis_model
         self.Z_shape = self.gen_model.X_shape
         self.X_shape = self.dis_model.X_shape
-        self.gen_noise = func_gen_noise
+        self.gen_noise = func_gen_noise if func_gen_noise is not None else self.random_noise
     
     def step_fit(self, X, y):
         """Train the two models with given input sample data set.
